@@ -1,19 +1,20 @@
 //make connection
-var socket = io.connect('http://192.168.1.159:4000');
-
+var socket = io.connect('http://'+ location.hostname + ':4000');
+console.log(location.hostname)
 var message = document.getElementById('message');
 var btn = document.getElementById('send');
 var output=document.getElementById('output');
 let hivechat=document.getElementById('hivechat');
 let hivevote=document.getElementById('hivevote');
 let timer = document.getElementById('timer');
-let timeLeft=10; //tiden på timern vid röstning
-let appState=0; //app state, 0 = suggestion, 1=voting
 let userPanel=document.getElementById('users');
 let usernameBox=document.getElementById('username');
 let loginButton = document.getElementById('loginbutton')
 let loginBox = document.getElementById('loginbox')
 let hiveApp = document.getElementById('hiveapp')
+
+let timeLeft=10; //tiden på timern vid röstning
+let appState=0; //app state, 0 = suggestion, 1=voting
 
 
 loginButton.addEventListener("click",function(){
@@ -62,10 +63,11 @@ socket.on('voteResult',function(data){
 
 let tickTock = function(){
     if (timeLeft < 1){
+        timer.innerText="";
         return;
     }
-    timer.innerText=timeLeft;
     timeLeft--;
+    timer.innerText=timeLeft;
     setTimeout(tickTock, 1000);
 }
 

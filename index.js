@@ -25,18 +25,19 @@ Så den tömmer suggestionsList och sätter allas numvotes till 0 så att alla k
 */
 let checkVotes=function(){
     console.log(users);
-        maxVotes=suggestionList[0];
-        suggestionList.forEach(element => {
-            if (element.score>maxVotes.score){
-                maxVotes=element;
-            }
-        });
-        io.sockets.emit('voteResult', maxVotes.paragraph);
-        suggestionList=[];
-        clearTimeout(timeOutVar);
-        users.forEach(element => {
-            element.numvotes=0;
-        });
+    maxVotes=suggestionList[0];
+    suggestionList.forEach(suggestion => {
+        if (suggestion.score>maxVotes.score){
+            maxVotes=suggestion;
+        }
+    });
+    users.find(user => user.id==maxVotes.authorId).score++; //Adds another score to the author of the suggestion 
+    io.sockets.emit('voteResult', maxVotes.paragraph); //Adds the winning suggestion to the frame
+    suggestionList=[];
+    clearTimeout(timeOutVar);
+    users.forEach(element => {
+        element.numvotes=0;
+    });
 }
 
 io.on('connection',function(socket){
@@ -45,7 +46,8 @@ io.on('connection',function(socket){
         users.push({
             id: socket.id,
             numvotes: 0,
-            name: data.username
+            name: data.username,
+            score: 0
         });
         socket.broadcast.emit('userConnect',{
             name: data.username,
@@ -74,15 +76,15 @@ io.on('connection',function(socket){
             return;
         }
         //only allow ONE PER PERSON
-        if (suggestionList.find(sl => sl.id=socket.id)!=undefined){
+        if (suggestionList.find(suggestion => suggestion.authorId=socket.id)!=undefined){
             return;
         }
-        //io.sockets.emit('chat',data)
+        //add a new sugestion to the list
         suggestionList.push({
             id: crypto.randomBytes(20).toString('hex'),
             paragraph: data.message,
             score: 0,
-            userid: socket.id
+            authorId: socket.id
         });
         console.log(suggestionList);
         if (suggestionList.length>=users.length){
@@ -91,11 +93,13 @@ io.on('connection',function(socket){
         }
     });
 
-    //BS was here
-
     //inkrementera poäng på förslag när nån röstar
     socket.on('vote',function(id){
         let currentUser = users.find(u => u.id==socket.id);
+        //Do not accept vote on your own suggestion
+        if (currentUser.id == suggestionList.find(s => s.id==id).authorId) {
+            return;
+        }
         if (currentUser.numvotes<voteLimit){
             console.log(id);
             currentUser.numvotes++;
