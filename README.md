@@ -1,0 +1,2 @@
+# hivemind
+Collaborative Problem Solving
