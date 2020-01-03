@@ -91,6 +91,8 @@ io.on('connection',function(socket){
         }
     });
 
+    //BS was here
+
     //inkrementera poäng på förslag när nån röstar
     socket.on('vote',function(id){
         let currentUser = users.find(u => u.id==socket.id);
