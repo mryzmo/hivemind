@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+ <html class="no-js"> <!--<![endif]-->
+    <head>
+        <meta charset="utf-8">
+        <title>Hivemind</title>
+        <script src="/socket.io/socket.io.js"></script>
+        <link href="/style.css" rel="stylesheet"/>
+    </head>
+    <body>
+        <div id="loginbox">
+            <input id="username" placeholder="username" type="text">
+            <button id="loginbutton">Log in</button>
+        </div>
+        <div id="hiveapp" style="display: none;">
+            <div id="hiveresult">
+                <div id="chat-window">
+                    <div id="output"></div>
+                </div>
+                <div id="hivechat">
+                    <input id="message" type="text">
+                    <button id="send" type="submit">Propose</button>
+                </div>
+            </div>
+    
+            <div id="hivevote"></div>
+            <div id="timer"></div>
+    
+            <div id="users"></div>
+        </div>
+
+        <script src="/chat.js"></script>
+    </body>
+</html>
