@@ -47,6 +47,19 @@ h2{
     color: #575ed8;
 }
 
+#timer{
+    font-size: 100px;
+    text-align: center;
+}
+
+.row{
+    display: flex;
+}
+
+.column{
+    flex: 50%;
+}
+
 label{
     box-sizing: border-box;
     display: block;

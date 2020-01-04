@@ -8,12 +8,13 @@ let hivechat=document.getElementById('hivechat');
 let hivevote=document.getElementById('hivevote');
 let timer = document.getElementById('timer');
 let userPanel=document.getElementById('users');
+let scorePanel=document.getElementById('scores');
 let usernameBox=document.getElementById('username');
 let loginButton = document.getElementById('loginbutton')
 let loginBox = document.getElementById('loginbox')
 let hiveApp = document.getElementById('hiveapp')
 
-let timeLeft=10; //tiden på timern vid röstning
+let timeLeft=10; //tiden på timern vid röstning och förslagsläggning
 let appState=0; //app state, 0 = suggestion, 1=voting
 
 
@@ -34,6 +35,7 @@ let submitProposal = function(){
     socket.emit('chat',{
         message: message.value});
     message.value="";
+    timeLeft=10;
 }
 
 message.addEventListener("keydown", function(e) {
@@ -46,13 +48,13 @@ message.addEventListener("keydown", function(e) {
 console.log('hej')
 btn.addEventListener('click',submitProposal);
 
-
-socket.on('chat',function(data){ 
-    output.innerHTML+=' '+data.message;
+socket.on('goToLogin', function() {
+    loginBox.style.display='block';
+    hiveApp.style.display='none';
 });
 
 socket.on('voteResult',function(data){ 
-    output.innerHTML+=' '+data;
+    output.innerHTML=data;
     while(hivevote.firstChild){
         hivevote.removeChild(hivevote.firstChild);
     }
@@ -87,11 +89,13 @@ socket.on('voteFrame',function(data){
     }
 });
 
-socket.on('userConnect',function(data){
-    userPanel.innerHTML+="<p id="+data.id+'>'+data.name+"</p>";
-})
-
-socket.on('userDisconnect',function(data){
-    var element = document. getElementById(data.id);
-    element.parentNode.removeChild(element);
-})
+socket.on('userChange',function(data){
+    userPanel.innerHTML = "";
+    scorePanel.innerHTML = "";
+    data.usernames.forEach(user => {
+        userPanel.innerHTML += `<p>${user}</p>`;
+    });
+    data.scores.forEach(score => {
+        scorePanel.innerHTML += `<p>${score}</p>`;
+    });
+});

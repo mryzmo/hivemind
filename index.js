@@ -1,6 +1,7 @@
 let express=require('express');
-let socket=require('socket.io')
+let socket=require('socket.io');
 var crypto = require("crypto");
+let hiveOutput = "";
 
 
 let app = express();
@@ -32,51 +33,71 @@ let checkVotes=function(){
         }
     });
     users.find(user => user.id==maxVotes.authorId).score++; //Adds another score to the author of the suggestion 
-    io.sockets.emit('voteResult', maxVotes.paragraph); //Adds the winning suggestion to the frame
+    
+    //Adds the winning suggestion to the frame (with our w/o space [" "])
+    if(maxVotes.paragraph == "." || maxVotes.paragraph == "," || maxVotes.paragraphhiveOutput == "!" || maxVotes.paragraph == "?") {
+        hiveOutput+= maxVotes.paragraph;
+    } else {
+        hiveOutput+= " " + maxVotes.paragraph;
+    }
+    io.sockets.emit('voteResult', hiveOutput); 
+
     suggestionList=[];
     clearTimeout(timeOutVar);
     users.forEach(element => {
         element.numvotes=0;
     });
+    io.sockets.emit('userChange', { //changes the userlist for all users
+        usernames: users.map(u => u.name), 
+        scores: users.map(u => u.score)
+    }); 
 }
 
 io.on('connection',function(socket){
-    //notify clients on login
+  
+    socket.emit('goToLogin');
+
+    //login user and notify all users on login
     socket.on('login',function(data){
-        users.push({
+        users.push({   //initiate user to userlist
             id: socket.id,
             numvotes: 0,
             name: data.username,
             score: 0
         });
-        socket.broadcast.emit('userConnect',{
-            name: data.username,
-            id: socket.id
-        });
-        users.forEach(element => {
-            console.log(element.name);
-            socket.emit('userConnect',{name: element.name});
-        });
+        // users.find(u => u.id==socket.id).name = data.username; //set username for user 
+        socket.emit('showResuls', hiveOutput);
+        io.sockets.emit('userChange', { //changes the userlist for all users
+            usernames: users.map(u => u.name), 
+            scores: users.map(u => u.score)
+        }); 
+        console.log(users);
     })
-    
+
     //send disconnect notice to all client
     socket.on('disconnect', function(){ 
-        console.log(socket.id + ' disconnected!');
-        users.splice(users.findIndex(u => u.id==socket.id),1);
-        io.sockets.emit('userDisconnect',{
-            name: socket.id,
-            id: socket.id
-        });
+        let dcUser = users.find(u => u.id==socket.id);
+        if(dcUser==undefined) {
+            return;
+        }
+        console.log(dcUser.username + ' disconnected!');
+        users.splice(users.findIndex(u => u==dcUser),1);
+        io.sockets.emit('userChange', { //changes the userlist for all users
+            usernames: users.map(u => u.name), 
+            scores: users.map(u => u.score)
+        }); 
+        console.log(users);
     });
 
-    //proposal recieved
+    //proposal recieved; return 0 if not accepted response
     socket.on('chat',function(data){
         //empty not allowed
         if (data.message.toString().trim()==""){
             return;
         }
+
         //only allow ONE PER PERSON
-        if (suggestionList.find(suggestion => suggestion.authorId=socket.id)!=undefined){
+        if (suggestionList.find(suggestion => suggestion.authorId==socket.id)!=undefined){
             return;
         }
         //add a new sugestion to the list
@@ -87,10 +108,14 @@ io.on('connection',function(socket){
             authorId: socket.id
         });
         console.log(suggestionList);
+
+        //avgör om alla suggestions har kommit in
+        console.log(users.length); console.log(suggestionList.length);
         if (suggestionList.length>=users.length){
             timeOutVar=setTimeout(checkVotes, 10000); //timeout for röstning
             io.sockets.emit('voteFrame',suggestionList);
         }
+        console.log(users);
     });
 
     //inkrementera poäng på förslag när nån röstar
@@ -108,5 +133,5 @@ io.on('connection',function(socket){
         console.log(suggestionList);
         if (users.find(u => u.numvotes<voteLimit)==undefined){checkVotes()};
     });
-
+    console.log(users);
 });
