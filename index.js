@@ -15,16 +15,6 @@ app.use(express.static('public'));
 //socket
 let io = socket(server);
 
-let channels = {}
-
-let channel = {
-    channelId: 'adadwd',
-    hiveOutput: 'dawdw',
-    moveUser: function(){dawd}
-}
-
-channels.push(channel)
-
 let hiveOutput = "";
 let suggestionList = [];
 let users=[]; //användarlista
