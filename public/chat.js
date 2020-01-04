@@ -1,9 +1,9 @@
 //make connection
-var socket = io.connect('http://'+ location.hostname + ':4000');
+let socket = io.connect('http://'+ location.hostname + ':4000');
 console.log(location.hostname)
-var message = document.getElementById('message');
-var btn = document.getElementById('send');
-var output=document.getElementById('output');
+let message = document.getElementById('message');
+let btn = document.getElementById('send');
+let output=document.getElementById('output');
 let hivechat=document.getElementById('hivechat');
 let hivevote=document.getElementById('hivevote');
 let timer = document.getElementById('timer');
@@ -62,6 +62,9 @@ socket.on('voteResult',function(data){
     hivechat.style.display="block";
     appState=0;
 });
+
+//Här laddas det som redan skrivits åt nyanlända
+socket.on('initiate',data => output.innerHTML=data);
 
 let tickTock = function(){
     if (timeLeft < 1){
