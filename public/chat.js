@@ -9,10 +9,12 @@ let hivevote=document.getElementById('hivevote');
 let timer = document.getElementById('timer');
 let userPanel=document.getElementById('users');
 let scorePanel=document.getElementById('scores');
+let votesPanel = document.getElementById('votesCast');
 let usernameBox=document.getElementById('username');
-let loginButton = document.getElementById('loginbutton')
-let loginBox = document.getElementById('loginbox')
-let hiveApp = document.getElementById('hiveapp')
+let loginButton = document.getElementById('loginbutton');
+let loginBox = document.getElementById('loginbox');
+let hiveApp = document.getElementById('hiveapp');
+
 
 let timeLeft=10; //tiden på timern vid röstning och förslagsläggning
 let appState=0; //app state, 0 = suggestion, 1=voting
@@ -35,7 +37,7 @@ let submitProposal = function(){
     socket.emit('chat',{
         message: message.value});
     message.value="";
-    timeLeft=10;
+    // timeLeft=10;
 }
 
 message.addEventListener("keydown", function(e) {
@@ -45,7 +47,6 @@ message.addEventListener("keydown", function(e) {
     }
 });
 
-console.log('hej')
 btn.addEventListener('click',submitProposal);
 
 socket.on('goToLogin', function() {
@@ -55,11 +56,13 @@ socket.on('goToLogin', function() {
 
 socket.on('voteResult',function(data){ 
     output.innerHTML=data;
+    timer.style.display="none";
     while(hivevote.firstChild){
         hivevote.removeChild(hivevote.firstChild);
     }
     console.log(hivevote);
     hivechat.style.display="block";
+    btn.style.background = "#575ed8"; //byter tillbaka bakgrunden på Propose-knappeN
     appState=0;
 });
 
@@ -71,20 +74,26 @@ let tickTock = function(){
         timer.innerText="";
         return;
     }
+    timer.innerText="Vote countdown: " + timeLeft;
     timeLeft--;
-    timer.innerText=timeLeft;
     setTimeout(tickTock, 1000);
 }
 
 socket.on('voteFrame',function(data){
-    timeLeft=10;
+    console.log(data.timeOut);
+    timeLeft=data.timeOut;
     setTimeout(tickTock, 1000);
     hivechat.style.display="none";
+    timer.style.display="block";
     if (appState==0){
         appState=1;
-        data.forEach(suggestion => {
+        data.suggestions.forEach(suggestion => {
             let votebtn=document.createElement("BUTTON");
             votebtn.innerText=suggestion.paragraph;
+            //Gör författarens eget förslag grått
+            if (suggestion.authorId == socket.id) {
+                votebtn.style.background = "#e9e9e9";
+            }
             //votebtn.setAttribute('id',suggestion.id)
             votebtn.addEventListener('click',function(){socket.emit('vote',suggestion.id)}); //när man trycker på knappen
             hivevote.appendChild(votebtn);
@@ -95,10 +104,19 @@ socket.on('voteFrame',function(data){
 socket.on('userChange',function(data){
     userPanel.innerHTML = "";
     scorePanel.innerHTML = "";
+    votesPanel.innerHTML = "";
     data.usernames.forEach(user => {
         userPanel.innerHTML += `<p>${user}</p>`;
     });
     data.scores.forEach(score => {
         scorePanel.innerHTML += `<p>${score}</p>`;
     });
+    console.log(data.voteCount);
+    data.voteCount.forEach(vote => {
+        votesPanel.innerHTML += `<p>${vote}</p>`;
+    })
+});
+
+socket.on('suggestionAccepted',function() {
+    btn.style.background = "#e9e9e9";
 });

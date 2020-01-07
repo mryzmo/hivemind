@@ -8,29 +8,44 @@
     </head>
     <body>
         <div id="loginbox">
+            <h1>Welcome to Hiveforce!</h1>
             <input id="username" placeholder="username" type="text">
             <button id="loginbutton">Log in</button>
+            <p>The story evolves as you suggest the next step and vote for your favorite addon. You can't votes on your own suggestion. 
+                Each user earns one point when their suggestions is chosen as the next step. You have a limited amount of votes, but can vote more than once on one suggestion.</p>
+            <p>Good luck, Hiveforce!</p>
         </div>
         <div id="hiveapp" style="display: none;">
+            <h2>The story so far...</h2>
             <div id="hiveresult">
                 <div id="chat-window">
                     <div id="output"></div>
                 </div>
                 <div id="hivechat">
-                    <input id="message" type="text">
+                    <input id="message" placeholder="Enter suggestion for next step (e.g. The cat is fuzzy!)" type="text">
                     <button id="send" type="submit">Propose</button>
                 </div>
             </div>
-    
-            <div id="hivevote"></div>
+
             <div id="timer"></div>
-    
+            <div id="hivevote"></div>
+            
+            <div id="scoreboxTitle" class="row">
+                <div id="usersTitle" class="column"><b>Username</b></div>
+                <div id="scoresTitle" class="column"><b>Score</b></div>
+                <div id="votesCastTitle" class="column"><b>Votes</b></div>
+            </div>
+
+
             <div id="scorebox" class="row">
                 <div id="users" class="column"></div>
                 <div id="scores" class="column"></div>
+                <div id="votesCast" class="column"></div>
             </div>
+            <p>The story evolves as you suggest the next step and vote for your favorite addon. You can't votes on your own suggestion. 
+                Each user earns one point when their suggestions is chosen as the next step. You have a limited amount of votes, but can vote more than once on one suggestion.</p>
+            <p>Good luck, Hiveforce!</p>
         </div>
-
         <script src="/chat.js"></script>
     </body>
 </html>

@@ -19,24 +19,26 @@ let hiveOutput = "";
 let suggestionList = [];
 let users=[]; //användarlista
 const voteLimit = 3;
-let timeOutVar;
+let timeOutVar = 0;
+let timePerUser = 10;
 
 /*
 Denna funktion kollar vilket förslag som vunnit, och sen resettar den allt. 
 Så den tömmer suggestionsList och sätter allas numvotes till 0 så att alla kan få rösta igen.
 */
 let checkVotes=function(){
-    console.log(users);
+    //kollar vilket suggestion som vunnit
     let winnerSuggestion=suggestionList[0];
     suggestionList.forEach(suggestion => {
         if (suggestion.score>winnerSuggestion.score){
             winnerSuggestion=suggestion;
         }
     });
+
     users.find(user => user.id==winnerSuggestion.authorId).score++; //Adds another score to the author of the suggestion 
     
     //Adds the winning suggestion to the frame (with our w/o space [" "])
-    if(winnerSuggestion.paragraph == "." || winnerSuggestion.paragraph == "," || winnerSuggestion.paragraphhiveOutput == "!" || winnerSuggestion.paragraph == "?") {
+    if(winnerSuggestion.paragraph[0] == "." || winnerSuggestion.paragraph[0] == "," || winnerSuggestion.paragraph[0] == "!" || winnerSuggestion.paragraph[0] == "?" || winnerSuggestion.paragraph[0] == ":" || winnerSuggestion.paragraph[0] == ";" || winnerSuggestion.paragraph[0] == "/" || winnerSuggestion.paragraph[0] == "(" || winnerSuggestion.paragraph[0] == "#" ) {
         hiveOutput+= winnerSuggestion.paragraph;
     } else {
         hiveOutput+= " " + winnerSuggestion.paragraph;
@@ -47,10 +49,13 @@ let checkVotes=function(){
     clearTimeout(timeOutVar);
     users.forEach(element => {
         element.numvotes=0;
+        element.voteCount=voteLimit;
     });
+
     io.sockets.emit('userChange', { //changes the userlist for all users
         usernames: users.map(u => u.name), 
-        scores: users.map(u => u.score)
+        scores: users.map(u => u.score),
+        voteCount: users.map(u => u.voteCount)
     }); 
 }
 
@@ -64,14 +69,17 @@ io.on('connection',function(socket){
             id: socket.id,
             numvotes: 0,
             name: data.username,
-            score: 0
+            score: 0,
+            voteCount: voteLimit
         });
+        console.log(users.voteCount);
+        timeOutVar += timePerUser;
         // users.find(u => u.id==socket.id).name = data.username; //set username for user 
-        socket.emit('showResuls', hiveOutput);
         socket.emit('initiate',hiveOutput);
         io.sockets.emit('userChange', { //changes the userlist for all users
             usernames: users.map(u => u.name), 
-            scores: users.map(u => u.score)
+            scores: users.map(u => u.score),
+            voteCount: users.map(u => u.voteCount)
         }); 
         console.log(users);
     })
@@ -84,9 +92,11 @@ io.on('connection',function(socket){
         }
         console.log(dcUser.username + ' disconnected!');
         users.splice(users.findIndex(u => u==dcUser),1);
+        timeOutVar -= timePerUser;
         io.sockets.emit('userChange', { //changes the userlist for all users
             usernames: users.map(u => u.name), 
-            scores: users.map(u => u.score)
+            scores: users.map(u => u.score),
+            voteCount: users.map(u => u.voteCount)
         }); 
         console.log(users);
     });
@@ -102,6 +112,7 @@ io.on('connection',function(socket){
         if (suggestionList.find(suggestion => suggestion.authorId==socket.id)!=undefined){
             return;
         }
+
         //add a new sugestion to the list
         suggestionList.push({
             id: crypto.randomBytes(20).toString('hex'),
@@ -109,13 +120,18 @@ io.on('connection',function(socket){
             score: 0,
             authorId: socket.id
         });
-        console.log(suggestionList);
+        socket.emit('suggestionAccepted');
 
         //avgör om alla suggestions har kommit in
         console.log(users.length); console.log(suggestionList.length);
         if (suggestionList.length>=users.length){
-            timeOutVar=setTimeout(checkVotes, 10000); //timeout for röstning
-            io.sockets.emit('voteFrame',suggestionList);
+            console.log(timeOutVar);
+            let timer =setTimeout(checkVotes, timeOutVar*1000); //timeout for röstning
+            console.log(timeOutVar);
+            io.sockets.emit('voteFrame', {
+                suggestions: suggestionList,
+                timeOut: timeOutVar
+            });
         }
         console.log(users);
     });
@@ -130,7 +146,13 @@ io.on('connection',function(socket){
         if (currentUser.numvotes<voteLimit){
             console.log(id);
             currentUser.numvotes++;
+            currentUser.voteCount--;
             suggestionList.find(s => s.id==id).score++;
+            io.sockets.emit('userChange', { //changes the userlist for all users
+                usernames: users.map(u => u.name), 
+                scores: users.map(u => u.score),
+                voteCount: users.map(u => u.voteCount)
+            }); 
         }
         console.log(suggestionList);
         if (users.find(u => u.numvotes<voteLimit)==undefined){checkVotes()};
