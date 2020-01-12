@@ -165,6 +165,12 @@ io.on('connection',function(socket){
         socket.channel.onFunctions(socket);
     });
 
+    socket.on('newChannel',function(data){
+        channels.push(new HiveChannel(data.name,3));
+        socket.emit('goToLogin',channels.map(c => c.name));
+    });
+
+
     //send disconnect notice to all client
     socket.on('disconnect', function(){ 
         //console.log(socket.user.username + ' disconnected!');

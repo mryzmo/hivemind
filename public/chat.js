@@ -14,7 +14,9 @@ let usernameBox=document.getElementById('username');
 let loginButton = document.getElementById('loginbutton');
 let loginBox = document.getElementById('loginbox');
 let hiveApp = document.getElementById('hiveapp');
-
+let channelButtons=document.getElementById('channelButtons');
+let newChannelBtn=document.getElementById('newChannel');
+let channelNameBox=document.getElementById('newChannelName');
 
 let timeLeft=10; //tiden på timern vid röstning och förslagsläggning
 let appState=0; //app state, 0 = suggestion, 1=voting
@@ -41,11 +43,21 @@ message.addEventListener("keydown", function(e) {
     }
 });
 
+newChannelBtn.addEventListener('click',function(){
+    socket.emit('newChannel',{name: channelNameBox.value})
+});
+
 btn.addEventListener('click',submitProposal);
+
+
 
 socket.on('goToLogin', function(data) {
     loginBox.style.display='block';
     hiveApp.style.display='none';
+    while(channelButtons.firstChild){
+        channelButtons.removeChild(channelButtons.firstChild);
+    }
+
     data.forEach(channel => {
         let chanbtn=document.createElement("BUTTON");
         chanbtn.innerText=channel;
@@ -54,7 +66,7 @@ socket.on('goToLogin', function(data) {
             loginBox.style.display='none';
             hiveApp.style.display='block';
         }); //när man trycker på knappen
-        loginBox.appendChild(chanbtn);
+        channelButtons.appendChild(chanbtn);
     });
 });
 
