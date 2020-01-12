@@ -15,147 +15,162 @@ app.use(express.static('public'));
 //socket
 let io = socket(server);
 
-let hiveOutput = "";
-let suggestionList = [];
-let users=[]; //användarlista
-const voteLimit = 3;
-let timeOutVar = 0;
-let timePerUser = 10;
+globalUsers=[];
 
-/*
-Denna funktion kollar vilket förslag som vunnit, och sen resettar den allt. 
-Så den tömmer suggestionsList och sätter allas numvotes till 0 så att alla kan få rösta igen.
-*/
-let checkVotes=function(){
-    //kollar vilket suggestion som vunnit
-    let winnerSuggestion=suggestionList[0];
-    suggestionList.forEach(suggestion => {
-        if (suggestion.score>winnerSuggestion.score){
-            winnerSuggestion=suggestion;
-        }
-    });
-
-    users.find(user => user.id==winnerSuggestion.authorId).score++; //Adds another score to the author of the suggestion 
-    
-    //Adds the winning suggestion to the frame (with our w/o space [" "])
-    if(winnerSuggestion.paragraph[0] == "." || winnerSuggestion.paragraph[0] == "," || winnerSuggestion.paragraph[0] == "!" || winnerSuggestion.paragraph[0] == "?" || winnerSuggestion.paragraph[0] == ":" || winnerSuggestion.paragraph[0] == ";" || winnerSuggestion.paragraph[0] == "/" || winnerSuggestion.paragraph[0] == "(" || winnerSuggestion.paragraph[0] == "#" ) {
-        hiveOutput+= winnerSuggestion.paragraph;
-    } else {
-        hiveOutput+= " " + winnerSuggestion.paragraph;
+class Channel {
+    constructor(name) {
+        console.log('ch made');
+        this.users = [];
+        this.name = name;
+        this.hello = function () {
+            console.log('hello in ' + this.name);
+        };
     }
-    io.sockets.emit('voteResult', hiveOutput); 
-
-    suggestionList=[];
-    clearTimeout(timeOutVar);
-    users.forEach(element => {
-        element.numvotes=0;
-        element.voteCount=voteLimit;
-    });
-
-    io.sockets.emit('userChange', { //changes the userlist for all users
-        usernames: users.map(u => u.name), 
-        scores: users.map(u => u.score),
-        voteCount: users.map(u => u.voteCount)
-    }); 
 }
 
-io.on('connection',function(socket){
-  
-    socket.emit('goToLogin');
+class HiveChannel extends Channel{
+    constructor(name, voteLimit) {
+        //Channel.call(this, name);
+        super(name);
+        
+        this.voteLimit = voteLimit;
+        this.timeOutVar;
+        this.votingTime = 5;
+        this.suggestionList = [];
+        this.hiveOutput = "";
+        let ch = this;
+        
 
+        this.onFunctions = function (socket) {
+            //proposal recieved; return if not accepted response
+            socket.on('chat', function (data) {
+                //empty not allowed
+                if (data.message.toString().trim() == "") {
+                    return;
+                }
+                //only allow ONE PER PERSON
+                if (ch.suggestionList.find(suggestion => suggestion.authorId == socket.id) != undefined) {
+                    return;
+                }
+                //add a new sugestion to the list
+                ch.suggestionList.push({
+                    id: crypto.randomBytes(20).toString('hex'),
+                    paragraph: data.message,
+                    score: 0,
+                    authorId: socket.id
+                });
+                console.log('listan nu');
+                console.log(ch.suggestionList);
+                //avgör om alla suggestions har kommit in
+                if (ch.suggestionList.length >= ch.users.length) {
+                    ch.timeOutVar = setTimeout(ch.checkVotes, 10000,ch); //timeout for röstning
+                    io.to(ch.name).emit('voteFrame', {
+                        suggestions: ch.suggestionList,
+                        timeOut: ch.votingTime*ch.users.length
+                    });
+                }
+            });
+            //inkrementera poäng på förslag när nån röstar
+            socket.on('vote', function (id) {
+                let currentUser = ch.users.find(u => u.id == socket.id);
+                //Do not accept vote on your own suggestion
+                if (currentUser.id == ch.suggestionList.find(s => s.id == id).authorId) {
+                    return;
+                }
+                if (currentUser.numvotes < ch.voteLimit) {
+                    currentUser.numvotes++;
+                    currentUser.voteCount--;
+                    ch.suggestionList.find(s => s.id == id).score++;
+                }
+                if (ch.users.find(u => u.numvotes < ch.voteLimit) == undefined) {
+                    ch.checkVotes(this);
+                }
+                ;
+            });
+        };
+        this.onJoin = function (socket) {
+            socket.emit('initiate', ch.hiveOutput);
+            ch.users.push(globalUsers.find(u => u.id == socket.id));
+            console.log(ch.users);
+            io.to(ch.name).emit('userChange', {
+                usernames: ch.users.map(u => u.name),
+                scores: ch.users.map(u => u.score),
+                voteCount: ch.users.map(u => u.voteCount)
+            });
+        };
+        this.onDisconnect = function (socket) {
+            ch.users.splice(ch.users.findIndex(u => u == socket.user), 1);
+            io.to(ch.name).emit('userChange', {
+                usernames: ch.users.map(u => u.name),
+                scores: ch.users.map(u => u.score),
+                voteCount: ch.users.map(u => u.voteCount)
+            });
+        };
+    }
+    checkVotes(chan){
+        let winnerSuggestion=chan.suggestionList[0];
+        chan.suggestionList.forEach(suggestion => {
+            if (suggestion.score>winnerSuggestion.score){
+                winnerSuggestion=suggestion;
+            }
+        });
+        chan.users.find(user => user.id==winnerSuggestion.authorId).score++; //Adds another score to the author of the suggestion 
+        console.log(chan.hiveOutput);
+        //Adds the winning suggestion to the frame (with our w/o space [" "])
+        if(winnerSuggestion.paragraph == "." || winnerSuggestion.paragraph == "," || winnerSuggestion.paragraphhiveOutput == "!" || winnerSuggestion.paragraph == "?") {
+            chan.hiveOutput += winnerSuggestion.paragraph;
+        } else {
+            chan.hiveOutput+=(" " + winnerSuggestion.paragraph);
+        }
+        io.to(chan.name).emit('voteResult', chan.hiveOutput); 
+    
+        chan.suggestionList.splice(0,chan.suggestionList.length);
+        clearTimeout(chan.timeOutVar);
+        chan.users.forEach(element => {
+            element.numvotes=0;
+            element.voteCount=voteLimit;
+        });
+        io.to(chan.name).emit('userChange', { //changes the userlist for all users
+            usernames: chan.users.map(u => u.name), 
+            scores: chan.users.map(u => u.score),
+            voteCount: chan.users.map(u => u.voteCount)
+        }); 
+    }
+}
+
+channels = [new HiveChannel('channel1',3,10), new HiveChannel('channel2',3,10)];
+
+//denna borde flyttas in i klassen egentligen.
+voteLimit=3;
+
+io.on('connection',function(socket){
+    socket.emit('goToLogin',channels.map(c => c.name)); 
     //login user and notify all users on login
     socket.on('login',function(data){
-        users.push({   //initiate user to userlist
+        thisuser={   //initiate user to userlist
             id: socket.id,
             numvotes: 0,
             name: data.username,
             score: 0,
             voteCount: voteLimit
-        });
-        console.log(users.voteCount);
-        timeOutVar += timePerUser;
-        // users.find(u => u.id==socket.id).name = data.username; //set username for user 
-        socket.emit('initiate',hiveOutput);
-        io.sockets.emit('userChange', { //changes the userlist for all users
-            usernames: users.map(u => u.name), 
-            scores: users.map(u => u.score),
-            voteCount: users.map(u => u.voteCount)
-        }); 
-        console.log(users);
-    })
+        };
+        globalUsers.push(thisuser);
+
+        socket.channel=channels.find(c => c.name==data.channel);
+        socket.join(socket.channel.name);
+        
+        socket.channel.onJoin(socket);
+        socket.channel.onFunctions(socket);
+    });
 
     //send disconnect notice to all client
     socket.on('disconnect', function(){ 
-        let dcUser = users.find(u => u.id==socket.id);
-        if(dcUser==undefined) {
-            return;
+        //console.log(socket.user.username + ' disconnected!');
+        globalUsers.splice(globalUsers.findIndex(u => u.id==socket.id),1);
+        if (socket.channel != undefined){
+            console.log('try-disco');
+            socket.channel.onDisconnect(socket);
         }
-        console.log(dcUser.username + ' disconnected!');
-        users.splice(users.findIndex(u => u==dcUser),1);
-        timeOutVar -= timePerUser;
-        io.sockets.emit('userChange', { //changes the userlist for all users
-            usernames: users.map(u => u.name), 
-            scores: users.map(u => u.score),
-            voteCount: users.map(u => u.voteCount)
-        }); 
-        console.log(users);
     });
 
-    //proposal recieved; return 0 if not accepted response
-    socket.on('chat',function(data){
-        //empty not allowed
-        if (data.message.toString().trim()==""){
-            return;
-        }
-
-        //only allow ONE PER PERSON
-        if (suggestionList.find(suggestion => suggestion.authorId==socket.id)!=undefined){
-            return;
-        }
-
-        //add a new sugestion to the list
-        suggestionList.push({
-            id: crypto.randomBytes(20).toString('hex'),
-            paragraph: data.message,
-            score: 0,
-            authorId: socket.id
-        });
-        socket.emit('suggestionAccepted');
-
-        //avgör om alla suggestions har kommit in
-        console.log(users.length); console.log(suggestionList.length);
-        if (suggestionList.length>=users.length){
-            console.log(timeOutVar);
-            let timer =setTimeout(checkVotes, timeOutVar*1000); //timeout for röstning
-            console.log(timeOutVar);
-            io.sockets.emit('voteFrame', {
-                suggestions: suggestionList,
-                timeOut: timeOutVar
-            });
-        }
-        console.log(users);
-    });
-
-    //inkrementera poäng på förslag när nån röstar
-    socket.on('vote',function(id){
-        let currentUser = users.find(u => u.id==socket.id);
-        //Do not accept vote on your own suggestion
-        if (currentUser.id == suggestionList.find(s => s.id==id).authorId) {
-            return;
-        }
-        if (currentUser.numvotes<voteLimit){
-            console.log(id);
-            currentUser.numvotes++;
-            currentUser.voteCount--;
-            suggestionList.find(s => s.id==id).score++;
-            io.sockets.emit('userChange', { //changes the userlist for all users
-                usernames: users.map(u => u.name), 
-                scores: users.map(u => u.score),
-                voteCount: users.map(u => u.voteCount)
-            }); 
-        }
-        console.log(suggestionList);
-        if (users.find(u => u.numvotes<voteLimit)==undefined){checkVotes()};
-    });
-    console.log(users);
 });

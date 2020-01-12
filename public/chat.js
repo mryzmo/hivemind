@@ -20,12 +20,6 @@ let timeLeft=10; //tiden på timern vid röstning och förslagsläggning
 let appState=0; //app state, 0 = suggestion, 1=voting
 
 
-loginButton.addEventListener("click",function(){
-    socket.emit('login',{username: usernameBox.value});
-    loginBox.style.display='none';
-    hiveApp.style.display='block';
-})
-
 /*usernameBox.addEventListener("keydown", function(e) {
     if(e.keyCode==13){
         e.preventDefault();
@@ -49,9 +43,19 @@ message.addEventListener("keydown", function(e) {
 
 btn.addEventListener('click',submitProposal);
 
-socket.on('goToLogin', function() {
+socket.on('goToLogin', function(data) {
     loginBox.style.display='block';
     hiveApp.style.display='none';
+    data.forEach(channel => {
+        let chanbtn=document.createElement("BUTTON");
+        chanbtn.innerText=channel;
+        chanbtn.addEventListener('click',function(){
+            socket.emit('login',{username: usernameBox.value,channel: channel});
+            loginBox.style.display='none';
+            hiveApp.style.display='block';
+        }); //när man trycker på knappen
+        loginBox.appendChild(chanbtn);
+    });
 });
 
 socket.on('voteResult',function(data){ 
