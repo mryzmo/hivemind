@@ -77,12 +77,12 @@ class HiveChannel extends Channel{
                 if (currentUser.id == ch.suggestionList.find(s => s.id == id).authorId) {
                     return;
                 }
-                if (currentUser.numvotes < ch.voteLimit) {
-                    currentUser.numvotes++;
-                    currentUser.voteCount--;
+                if (currentUser.channelData.numvotes < ch.voteLimit) {
+                    currentUser.channelData.numvotes++;
+                    currentUser.channelData.voteCount--;
                     ch.suggestionList.find(s => s.id == id).score++;
                 }
-                if (ch.users.find(u => u.numvotes < ch.voteLimit) == undefined) {
+                if (ch.users.find(u => u.channelData.numvotes < ch.voteLimit) == undefined) {
                     ch.checkVotes(this);
                 }
                 ;
@@ -90,20 +90,25 @@ class HiveChannel extends Channel{
         };
         this.onJoin = function (socket) {
             socket.emit('initiate', ch.hiveOutput);
-            ch.users.push(globalUsers.find(u => u.id == socket.id));
+            let currentUser = globalUsers.find(u => u.id == socket.id);
+            ch.users.push(currentUser);
+            currentUser.channelData.voteCount=ch.voteLimit; //set votelimit from channel
+            currentUser.channelData.numvotes=0;
+
             console.log(ch.users);
             io.to(ch.name).emit('userChange', {
                 usernames: ch.users.map(u => u.name),
                 scores: ch.users.map(u => u.score),
-                voteCount: ch.users.map(u => u.voteCount)
+                voteCount: ch.users.map(u => u.channelData.voteCount)
             });
         };
         this.onDisconnect = function (socket) {
-            ch.users.splice(ch.users.findIndex(u => u == socket.user), 1);
+            ch.users.find(u => u.id == socket.id).channelData={};
+            ch.users.splice(ch.users.findIndex(u => u.id == socket.id), 1);
             io.to(ch.name).emit('userChange', {
                 usernames: ch.users.map(u => u.name),
                 scores: ch.users.map(u => u.score),
-                voteCount: ch.users.map(u => u.voteCount)
+                voteCount: ch.users.map(u => u.channelData.voteCount)
             });
         };
     }
@@ -127,21 +132,19 @@ class HiveChannel extends Channel{
         chan.suggestionList.splice(0,chan.suggestionList.length);
         clearTimeout(chan.timeOutVar);
         chan.users.forEach(element => {
-            element.numvotes=0;
-            element.voteCount=voteLimit;
+            element.channelData.numvotes=0;
+            element.channelData.voteCount=chan.voteLimit;
         });
         io.to(chan.name).emit('userChange', { //changes the userlist for all users
             usernames: chan.users.map(u => u.name), 
             scores: chan.users.map(u => u.score),
-            voteCount: chan.users.map(u => u.voteCount)
+            voteCount: chan.users.map(u => u.channelData.voteCount)
         }); 
     }
 }
 
-channels = [new HiveChannel('channel1',3,10), new HiveChannel('channel2',3,10)];
+channels = [new HiveChannel('channel1',3), new HiveChannel('channel2',3)];
 
-//denna borde flyttas in i klassen egentligen.
-voteLimit=3;
 
 io.on('connection',function(socket){
     socket.emit('goToLogin',channels.map(c => c.name)); 
@@ -149,10 +152,9 @@ io.on('connection',function(socket){
     socket.on('login',function(data){
         thisuser={   //initiate user to userlist
             id: socket.id,
-            numvotes: 0,
             name: data.username,
             score: 0,
-            voteCount: voteLimit
+            channelData: {},
         };
         globalUsers.push(thisuser);
 
